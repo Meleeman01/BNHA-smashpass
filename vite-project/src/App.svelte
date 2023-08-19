@@ -6,6 +6,8 @@
   let currentName = '';
   let smashed = [];
   let passed = [];
+  let picsLeft;
+
   async function scrape() {
     let result;
       try{
@@ -33,9 +35,11 @@
           }
           
         });
+        characterDataArray = characterDataArray.slice(0,7);
         console.log(characterDataArray[currentIndex]);
         currentUrl = characterDataArray[currentIndex].url;
         currentName = characterDataArray[currentIndex].innerText;
+        picsLeft = characterDataArray.length;
       }
       console.log(characterDataArray[0].url);
       
@@ -48,21 +52,36 @@
     }
     return array;
   }
+
+  function calcPicsLeft() {
+    picsLeft = characterDataArray.length - currentIndex;
+    console.log(picsLeft);
+  }
   
 
   function pass(name,url) {
+    calcPicsLeft();
+    if (picsLeft == 0) {
+      return;
+    }
     passed = [...passed,{name:name,url:url}]
     console.log(passed)
     currentIndex++;
     currentUrl = characterDataArray[currentIndex].url;
     currentName = characterDataArray[currentIndex].innerText;
+    
   }
   function smash(name,url) {
+    calcPicsLeft();
+    if (picsLeft == 0) {
+      return;
+    }
     smashed = [...smashed,{name:name,url:url}]
     console.log(passed)
     currentIndex++;
     currentUrl = characterDataArray[currentIndex].url;
     currentName = characterDataArray[currentIndex].innerText;
+    
   }
 
 
@@ -87,17 +106,23 @@
 
     <div class="flx(column) center middle">
       <div id='character' class="flx(column) center middle">
+        <h4>{currentIndex +'/'+ characterDataArray.length}</h4>
         <img src={currentUrl} alt="alt" width="100%" />
         <h3>{currentName}</h3>
       </div>
       <div id="smashpass" class="flx(wrap) space-between middle is-full">
+        {#if currentIndex != characterDataArray.length}
         <button on:click={() => smash(currentName,currentUrl)} class="btn(xlarge) is-success">
           smash
         </button>
         <button on:click={() => pass(currentName,currentUrl)} class="btn(xlarge) is-error">
           pass
         </button>
+        {:else}
+        <div>Finished!</div>
+        {/if}
       </div>
+      
     </div>
     
     
@@ -115,5 +140,7 @@
 </main>
 
 <style>
-  
+  .mouseover:hover {
+    
+  }
 </style>
