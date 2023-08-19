@@ -1,11 +1,43 @@
 import express from "express";
 import puppeteer from 'puppeteer';
+import fs from 'fs';
+import cors from 'cors';
+
+
+async function writeDataToDisk(data) {
+    try {
+        const parsedData = JSON.parse(data);
+        console.log('JSON is valid:', parsedData);
+    } catch (error) {
+        console.error('Invalid JSON:', error.message);
+        return error.message;
+    }
+    fs.writeFile('data.json', data, async (err) => {
+        if (err) {
+            console.error('Error writing JSON file:', err);
+        } else {
+            console.log('JSON data saved to', 'data.json');
+        }
+    });
+}
+
+function loadCachedData() {
+    let result;
+    try{
+        result = JSON.parse(fs.readFileSync('data.json'));
+    }
+    catch(err) {
+        return false;
+    }
+    return result;
+}
 //import path from "path";
 
 const app = express();
 
 // Enable JSON parsing middleware
 app.use(express.json());
+app.use(cors());
 // Serve static files from the "public" directory
 app.use(express.static('/home/meleeman/Webwork/BNHA-smashpass/vite-project/dist'));
 
@@ -16,8 +48,14 @@ app.get('/', (req, res) => {
 
 // Define a route for handling Puppeteer operations
 app.get('/scrape', async (req, res) => {
-    
-    
+    const cache = await loadCachedData();
+    console.log(cache,':From Cache');
+    if (cache) {
+        console.log('loading from cache');
+        res.json(cache);
+        return;
+    }
+
     // Launch a headless browser
     const browser = await puppeteer.launch({
     headless : "new",
@@ -27,6 +65,8 @@ app.get('/scrape', async (req, res) => {
     ]
   });
     console.log(browser);
+
+    
     const page = await browser.newPage();
     let result;
     // Navigate to a URL and perform scraping or testing tasks
@@ -54,7 +94,8 @@ app.get('/scrape', async (req, res) => {
 
     // Close the browser
     
-
+    //save data to disk
+    await writeDataToDisk(JSON.stringify({response:result}));
     // Send the scraped data as a response
     res.json({response:result});
     await browser.close();
