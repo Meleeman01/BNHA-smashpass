@@ -2,6 +2,7 @@ import express from "express";
 import puppeteer from 'puppeteer';
 import fs from 'fs';
 import cors from 'cors';
+import ViteExpress from "vite-express";
 
 
 async function writeDataToDisk(data) {
@@ -106,3 +107,4 @@ const port = 3000;
 app.listen(port, () => {
     console.log(`Server is listening on port ${port}`);
 });
+ViteExpress.bind(app, server);
