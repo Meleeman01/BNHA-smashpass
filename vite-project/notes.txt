@@ -1,0 +1,7 @@
+create a new user based on ip on load. 
+
+ const ipAddress = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+
+after the user completes the test, sumbit the data to be calculated.
+retrieve all the users if over 5k results, take slices of the data for performance perhaps every other nth item. this will have to be generated when the data becomes too large perhaps have each request. can use a child process to do this. 
+

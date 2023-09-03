@@ -1,15 +1,35 @@
 <script>
 import { onMount } from 'svelte';
+import Analytics from './Analytics.svelte';
 
+
+let baseURL = 'http://localhost:3000';
 
 let resultsBag;
 let characterDataArray = [];
 let currentIndex = 0;
 let currentUrl = '';
 let currentName = '';
+let currentCharacterLink = '';
+
 let smashed = [];
 let passed = [];
 let picsLeft;
+
+//do you prefer male or female? prompt
+let genderOptions = ['male ♂️','female ♀️','both ⚥'];
+let preferredGender;
+let analyticsData;
+
+//loading
+let loading = false;
+
+async function selectPrefGender(option) {
+  preferredGender = option;
+   // Start the timer after gender selection
+  interval = setInterval(updateTotalTimer, 1000);
+  picInterval = setInterval(updatePicTimer, 1000);
+}
 
 //local anayltics
 let startTime = Date.now();
@@ -26,32 +46,52 @@ let smashedTimes = [];
 let longestPass;
 let longestSmash;
 
+//toggleswitch at end
+let statsToggle = true;
+
+async function postSmash(_id) {
+  try{
+    const response = await fetch(`${baseURL}/smash`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({id:_id,prefGender:preferredGender})
+    });
+  }
+  catch(err){
+    console.log(err);
+  }
+}
+
+async function postPass(_id) {
+  try{
+    const response = await fetch(`${baseURL}/pass`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({id:_id,prefGender:preferredGender})
+    });
+  }
+  catch(err){
+    console.log(err);
+  }
+}
+
 async function scrape() {
   let result;
     try{
-       result = await fetch(`http://localhost:3000/scrape`);
+       result = await fetch(`${baseURL}/scrape`);
        resultsBag = await result.json();
-       console.log(resultsBag.response);
+       console.log(resultsBag);
     }
     catch(err) {
       console.log(err);
     }
-    if (resultsBag.response) {
-      resultsBag = resultsBag.response;
-      characterDataArray = shuffleArray(resultsBag).map((data)=> {
-        data.textContent
-        const srcAttributeRegex = /src="(https:\/\/.*?\.png).*?"/;
-        const match = data.textContent.match(srcAttributeRegex);
+    if (resultsBag) {
 
-        if (match) {
-          const srcAttributeValue = match[1]; // Captured portion of the URL
-          console.log(srcAttributeValue);
-          data.url = srcAttributeValue;
-          return data;
-        } else {
-          console.log('src attribute not found.');
-        }
-      });
+      characterDataArray = shuffleArray(resultsBag);
 
       //after parsing url its time to search for duplicates and remove them
       let uniquePictures = [];
@@ -71,10 +111,12 @@ async function scrape() {
       console.log('filterd:', filteredArray);
       characterDataArray = filteredArray;
 
-
+      //characterDataArray = characterDataArray.slice(0,10); <--for testing
       console.log(characterDataArray[currentIndex]);
       currentUrl = characterDataArray[currentIndex].url;
-      currentName = characterDataArray[currentIndex].innerText;
+      currentName = characterDataArray[currentIndex].name;
+      currentCharacterLink = characterDataArray[currentIndex].page;
+      //currentID = characterDataArray[currentIndex]._id;
       picsLeft = characterDataArray.length;
     }
     console.log(characterDataArray[0].url);
@@ -131,13 +173,39 @@ function calcLongestPass() {
   longestPass = result[0];
   console.log(longestPass);
 }   
+//world stats
+async function calcWorldStats(){
+  console.log(preferredGender);
+  console.log(passed);
+  console.log(smashed);
+  let data = {preferredGender:preferredGender,smashed:smashed.map((i)=> i._id),passed:passed.map((i)=> i._id)}
+  console.log(data);
+  try {
+        const response = await fetch(`${baseURL}/analytics`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json'
+              // Add any other headers you might need, like authentication headers
+          },
+          body: JSON.stringify(data)
+        });
+        analyticsData = await response.json();
+       // console.log('Response data:', responseData);
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+
 //=================================end of calculations=================================//
-function pass(name,url) {
+function pass(name,url,characterLink, currentID) {
+  console.log(characterDataArray[currentIndex]._id);
+  postPass(characterDataArray[currentIndex]._id);
   calcPicsLeft();
   clearInterval(picInterval);
-  passedTimes = [...passedTimes,{time:elapsedPicTime,name:name,url:url}];
+  passedTimes = [...passedTimes,{time:elapsedPicTime,name:name,url:url,characterLink:characterLink}];
   
-  passed = [...passed,{name:name,url:url}]
+  passed = [...passed,{name:name,url:url,characterLink:characterLink}]
   console.log(passed)
   currentIndex++;
   if (currentIndex == characterDataArray.length) {
@@ -147,19 +215,25 @@ function pass(name,url) {
     console.log(elapsedPicTime);
     calcLongestSmash();
     calcLongestPass();
+    calcWorldStats();
     return;
   }
   console.log('index',currentIndex);
   currentUrl = characterDataArray[currentIndex].url;
-  currentName = characterDataArray[currentIndex].innerText;
+  currentName = characterDataArray[currentIndex].name;
+  currentCharacterLink = characterDataArray[currentIndex].page;
+  //currentID = characterDataArray[currentIndex]._id;
+
+  //console.log(currentID);
   resetPicTimer();
 }
-function smash(name,url) {
+function smash(name,url,characterLink, currentID) {
+  postSmash(characterDataArray[currentIndex]._id)
   calcPicsLeft();
   clearInterval(picInterval);
-  smashedTimes = [...smashedTimes, {time:elapsedPicTime,name:name,url:url}];
+  smashedTimes = [...smashedTimes, {time:elapsedPicTime,name:name,url:url,characterLink:characterLink}];
   
-  smashed = [...smashed,{name:name,url:url}]
+  smashed = [...smashed,{name:name,url:url,characterLink:characterLink}]
   console.log(passed)
   currentIndex++;
   if (currentIndex == characterDataArray.length) {
@@ -169,11 +243,15 @@ function smash(name,url) {
     console.log(elapsedPicTime);
     calcLongestSmash();
     calcLongestPass();
+    calcWorldStats();
     return;
   }
   console.log('index',currentIndex);
   currentUrl = characterDataArray[currentIndex].url;
-  currentName = characterDataArray[currentIndex].innerText;
+  currentName = characterDataArray[currentIndex].name;
+  currentCharacterLink = characterDataArray[currentIndex].page;
+  //currentID = characterDataArray[currentIndex]._id;
+
   resetPicTimer();
 }
 //================================tooltip stuff==============================================//
@@ -233,18 +311,24 @@ function formatTime(seconds) {
     return `${minutes} min(s) and ${remainingSeconds} sec(s)`;
 }
 
+async function toggle(arg) {
+  statsToggle = arg;
+  console.log('toggle hit',statsToggle);
+}
+
+
 
 onMount(() => {
     console.log('the component has mounted');
     scrape();
-    // Start the timer on page load
-    interval = setInterval(updateTotalTimer, 1000);
-    picInterval = setInterval(updatePicTimer, 100);
 });
   
 </script>
 
 <main class="flx(column) center middle">
+  {#if loading}
+  <div>Loading...</div>
+  {/if}
   <h1 style="text-align: center;">Boku No Hero Smash or Pass</h1>
   
   <div class="flx(wrap) space-around top is-full">
@@ -266,52 +350,87 @@ onMount(() => {
     </div>
 
     <div class="flx(column) center middle">
-      {#if currentIndex != characterDataArray.length}
+
+      {#if !preferredGender}
+        <div class="flx(column) center middle">
+            <h3>Before we begin, which gender do you prefer as a partner?</h3>
+            <div class="flx(wrap) space-around middle is-full">
+              {#each genderOptions as option}
+              <button on:click={() => selectPrefGender(option)} class="btn is-round" style="">{option}</button>
+              {/each}
+            </div>
+        </div>
+      {/if}
+
+      {#if currentIndex != characterDataArray.length && preferredGender}
       <div id='character' class="flx(column) center middle">
         <h4>{currentIndex +'/'+ characterDataArray.length}</h4>
-        <img src={currentUrl} alt="alt" width="100%" />
+        <a href={currentCharacterLink} target="_blank"><img src={currentUrl} alt="alt" width="100%" /></a>
         <h3>{currentName}</h3>
       </div>
       {/if}
       <div id="smashpass" class="flx(wrap) space-around middle is-full">
-        {#if currentIndex != characterDataArray.length}
+        {#if currentIndex != characterDataArray.length && preferredGender}
         
-        <button style="margin-right:2rem; padding: .2rem 2rem;" on:click={() => pass(currentName,currentUrl)} class="btn(xlarge) is-error is-round">
+        <button style="margin-right:2rem; padding: .2rem 2rem;" on:click={() => pass(currentName,currentUrl,currentCharacterLink)} class="btn(xlarge) is-error is-round">
           Pass
         </button>
-        <button style="padding: .2rem 1rem;"  on:click={() => smash(currentName,currentUrl)} class="btn(xlarge) is-success is-round">
+        <button style="padding: .2rem 1rem;"  on:click={() => smash(currentName,currentUrl,currentCharacterLink)} class="btn(xlarge) is-success is-round">
           Smash
         </button>
-        {:else}
+        {:else if preferredGender}
         <div class="flx(column) center middle" style="max-width:20rem; text-align:center;">
           <h2>Finished!</h2>
-          <h4>Stats:</h4>
-          
-            <p><b>Total Time Taken:</b> {formatTime(elapsedTime)}</p>
-            <p><b>Longest Smashed Pic:</b> </p>
-            <p>{formatTime(Math.max(...smashedTimes.map((i)=> i.time)))}</p>
-            <div class="flx(column) center middle" style="margin-bottom: 3rem;">
-              {#if longestSmash}
-              <img src={longestSmash.url} alt="longestSmashed" width="100" height="100">
-              <span><b>{longestSmash.name}</b></span>
-              <span class="emoji">😏</span>
-              <p>You took a good long look at this one.</p>
+
+          <div class="flx(wrap) center middle is-full">
+            <button on:click={() => toggle(true)} class:is-info={statsToggle} class="btn(large) is-round is-info" style="border-radius: 2em 0 0 2em;">your Stats</button>
+            <button on:click={() => toggle(false)} class:is-info={!statsToggle} class="btn(large) is-round"style="border-radius: 0 2em 2em 0;">World Stats</button>
+          </div>
+            <div>
+              {#if statsToggle}
+              <h3>Your Stats</h3>
+              {:else}
+              <h3>World Stats</h3>
               {/if}
             </div>
-            <hr />
-            <p><b>longest passed pic:</b> </p>
-            <p>{formatTime(Math.max(...passedTimes.map((i)=> i.time)))}</p>
-            <div class="flx(column) center middle" style="margin-bottom: 3rem;">
-              {#if longestPass}
-              <img src={longestPass.url} alt="longestPassed" width="100" height="100">
-              <span><b>{longestPass.name}</b></span>
-              <span class="emoji">🤔</span>
-              <p>Really not sure if you wanted to smash this one or not huh?</p>
-              {/if}
+
+            {#if statsToggle}
+
+            <div>
+              <p><b>Total Time Taken:</b> {formatTime(elapsedTime)}</p>
+              <p><b>Longest Smashed Pic:</b> </p>
+              <p>{formatTime(Math.max(...smashedTimes.map((i)=> i.time)))}</p>
+              <div class="flx(column) center middle" style="margin-bottom: 3rem;">
+                {#if longestSmash}
+                <a href={longestSmash.characterLink} target="_blank"><img src={longestSmash.url} alt="longestSmashed" width="100" height="100"></a>
+                <span><b>{longestSmash.name}</b></span>
+                <span class="emoji">😏</span>
+                <p>You took a good long look at this one.</p>
+                {/if}
+              </div>
+              <hr />
+              <p><b>longest passed pic:</b> </p>
+              <p>{formatTime(Math.max(...passedTimes.map((i)=> i.time)))}</p>
+              <div class="flx(column) center middle" style="margin-bottom: 3rem;">
+                {#if longestPass}
+                <a href={longestPass.characterLink} target="_blank"><img src={longestPass.url} alt="longestPassed" width="100" height="100"></a>
+                <span><b>{longestPass.name}</b></span>
+                <span class="emoji">🤔</span>
+                <p>Really not sure if you wanted to smash this one or not huh?</p>
+                {/if}
+              </div>
+              <hr />
+              <p> <b>average time per pic:</b> </p>
+              <p>{formatTime(calcAverageTimePerPic())}</p>
             </div>
-            <hr />
-            <p> <b>average time per pic:</b> </p>
-            <p>{formatTime(calcAverageTimePerPic())}</p>
+              
+            {:else}
+              
+
+         <Analytics data={analyticsData} userPref={preferredGender} />
+              
+            {/if}
+            
 
           
         </div>
@@ -371,5 +490,8 @@ onMount(() => {
   span {
     max-width: 14rem;
     text-align: center;
+  }
+  button {
+    box-shadow: rgba(99, 99, 99, 0.2) 0px 2px 8px 0px;
   }
 </style>
