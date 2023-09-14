@@ -7,7 +7,7 @@ async function lol(data = undefined,queryType = undefined) {
 		return false;
 	}
 	
-
+	console.log(process.env.MONGO_URL);
 	let result = mongoose.connect(process.env.MONGO_URL, {
 		useNewUrlParser: true,
 		useUnifiedTopology: true,
@@ -16,8 +16,9 @@ async function lol(data = undefined,queryType = undefined) {
 		if(queryType == 'fetch') { 
 			console.log('fetching');
 			if (data) {
-				return await Character.find({});
+				return await Character.find({}).catch((err) => console.log(err));
 			}
+			else return [];
 		}
 		else if (queryType == 'update') {
 

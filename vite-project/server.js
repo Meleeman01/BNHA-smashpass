@@ -67,6 +67,17 @@ async function pass(data){
 	db(data,'update');
 }
 
+async function removeIP(data) {
+	return data.map((i)=>{
+		if (i.smashed) {
+			i.smashed = i.smashed.map((j) => {return {sexualPreference:j.sexualPreference};});
+		}
+		if (i.passed) {
+			i.passed = i.passed.map((j) => {return{sexualPreference:j.sexualPreference};});
+		}
+		return i;
+	});
+}
 
 const app = express();
 
@@ -83,11 +94,13 @@ app.get('/', (req, res) => {
 
 // Define a route for handling Puppeteer operations
 app.get('/scrape', async (req, res) => {
-	const cache = await loadCharactersFromDb();
+	let cache = await loadCharactersFromDb();
 	console.log(cache,':From Cache');
-	if (cache.length != 0) {
+	if (typeof cache == 'object' && cache.length != 0) {
 		console.log('loading from cache');
-		
+		cache = await removeIP(cache);
+		console.log(cache);
+
 		return res.json(cache);
 		
 	}
@@ -108,7 +121,7 @@ app.get('/scrape', async (req, res) => {
 	// Navigate to a URL and perform scraping or testing tasks
 	await page.goto('https://myheroacademia.fandom.com/wiki/List_of_Characters',{waitUntil : 'domcontentloaded',});
 	console.log('went to page');
-	await page.waitForSelector('.wikia-gallery-item',{timeout:60000})
+	await page.waitForSelector('.wikia-gallery-item',{timeout:60000});
 	// Wait for the desired number of items to load
 	// eslint-disable-next-line quotes
 	await page.waitForFunction(`document.querySelectorAll('.wikia-gallery-item').length`);
@@ -117,8 +130,8 @@ app.get('/scrape', async (req, res) => {
 		result = await page.$$eval(`.wikia-gallery-item`,(wikiaItem) => {
 			return wikiaItem.map((el) => {
 				const anchorEl = el.querySelector('a');
-				console.log(anchorEl.getAttribute('href'));
-				return {innerText:el.innerText, textContent:el.textContent, 
+				const name = el.querySelector('.chargallery-profile-caption').innerText;
+				return {innerText:name, textContent:el.textContent, 
 					characterLink: anchorEl ? `https://myheroacademia.fandom.com${anchorEl.getAttribute('href')}` : false
 				};
 			});
@@ -159,15 +172,7 @@ app.post('/pass', async(req,res) => {
 app.post('/analytics', async (req, res) => {
 	let result = await loadCharactersFromDb();
 	//remove ips before sending to client
-	result = result.map((i)=>{
-		if (i.smashed) {
-			i.smashed = i.smashed.map((j) => {return {sexualPreference:j.sexualPreference};});
-		}
-		if (i.passed) {
-			i.passed = i.passed.map((j) => {return{sexualPreference:j.sexualPreference};});
-		}
-		return i;
-	});
+	result = await removeIP(result);
 	return res.json(result);
 });
 

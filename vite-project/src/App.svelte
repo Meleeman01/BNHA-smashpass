@@ -91,7 +91,7 @@ async function scrape() {
     }
     if (resultsBag) {
 
-      characterDataArray = shuffleArray(resultsBag);
+     characterDataArray = resultsBag;
 
       //after parsing url its time to search for duplicates and remove them
       let uniquePictures = [];
@@ -111,12 +111,13 @@ async function scrape() {
       console.log('filterd:', filteredArray);
       characterDataArray = filteredArray;
 
-      //characterDataArray = characterDataArray.slice(0,10); <--for testing
+      characterDataArray = shuffleArray(filteredArray); //remove sliced for production
+
+     
       console.log(characterDataArray[currentIndex]);
       currentUrl = characterDataArray[currentIndex].url;
       currentName = characterDataArray[currentIndex].name;
       currentCharacterLink = characterDataArray[currentIndex].page;
-      //currentID = characterDataArray[currentIndex]._id;
       picsLeft = characterDataArray.length;
     }
     console.log(characterDataArray[0].url);
@@ -198,14 +199,20 @@ async function calcWorldStats(){
 
 
 //=================================end of calculations=================================//
-function pass(name,url,characterLink, currentID) {
+function pass(name,url,characterLink, currentID, changeMind = false) {
+  if (changeMind) {
+    console.log(currentID);
+    postSmash(characterDataArray[currentID]._id);
+    passed = [...passed,{id:currentID,name:name,url:url,characterLink:characterLink}]
+    return;
+  }
   console.log(characterDataArray[currentIndex]._id);
   postPass(characterDataArray[currentIndex]._id);
   calcPicsLeft();
   clearInterval(picInterval);
   passedTimes = [...passedTimes,{time:elapsedPicTime,name:name,url:url,characterLink:characterLink}];
   
-  passed = [...passed,{name:name,url:url,characterLink:characterLink}]
+  passed = [...passed,{id:currentID,name:name,url:url,characterLink:characterLink}]
   console.log(passed)
   currentIndex++;
   if (currentIndex == characterDataArray.length) {
@@ -227,13 +234,19 @@ function pass(name,url,characterLink, currentID) {
   //console.log(currentID);
   resetPicTimer();
 }
-function smash(name,url,characterLink, currentID) {
+function smash(name,url,characterLink, currentID, changeMind = false) {
+  if (changeMind) {
+    console.log(currentID);
+    postSmash(characterDataArray[currentID]._id);
+    smashed = [...smashed,{id:currentID,name:name,url:url,characterLink:characterLink}]
+    return;
+  }
   postSmash(characterDataArray[currentIndex]._id)
   calcPicsLeft();
   clearInterval(picInterval);
   smashedTimes = [...smashedTimes, {time:elapsedPicTime,name:name,url:url,characterLink:characterLink}];
   
-  smashed = [...smashed,{name:name,url:url,characterLink:characterLink}]
+  smashed = [...smashed,{id:currentID,name:name,url:url,characterLink:characterLink}]
   console.log(passed)
   currentIndex++;
   if (currentIndex == characterDataArray.length) {
@@ -311,6 +324,20 @@ function formatTime(seconds) {
     return `${minutes} min(s) and ${remainingSeconds} sec(s)`;
 }
 
+function changeToSmash(character) {
+  if (currentIndex == characterDataArray.length) return;
+  console.log(character);
+  //all picture urls should be unique
+  passed = passed.filter((c) => c.url != character.url);
+  smash(character.name, character.url, character.characterLink, character.id, true);
+}
+function changeToPass(character) {
+  if (currentIndex == characterDataArray.length) return;
+  //all picture urls should be unique
+  smashed = smashed.filter((c) => c.url != character.url);
+  pass(character.name, character.url, character.characterLink, character.id,true);
+}
+
 async function toggle(arg) {
   statsToggle = arg;
   console.log('toggle hit',statsToggle);
@@ -338,7 +365,8 @@ onMount(() => {
         {#each passed as item}
           <div>
               <img class="img" 
-                on:mouseenter={(e) => showTooltip(e,'right')} on:mouseleave={(e) => hideTooltip(e,'right')}
+                on:mouseenter={(e) => showTooltip(e,'right')} on:mouseleave={(e) => hideTooltip(e,'right')} 
+                on:click={(e)=>changeToSmash(item)}
                 src={item.url} alt={item.name} width="50" height="50">
 
               <div class="hidden tooltip" style="">
@@ -372,10 +400,10 @@ onMount(() => {
       <div id="smashpass" class="flx(wrap) space-around middle is-full">
         {#if currentIndex != characterDataArray.length && preferredGender}
         
-        <button style="margin-right:2rem; padding: .2rem 2rem;" on:click={() => pass(currentName,currentUrl,currentCharacterLink)} class="btn(xlarge) is-error is-round">
+        <button style="margin-right:2rem; padding: .2rem 2rem;" on:click={() => pass(currentName,currentUrl,currentCharacterLink,currentIndex)} class="btn(xlarge) is-error is-round">
           Pass
         </button>
-        <button style="padding: .2rem 1rem;"  on:click={() => smash(currentName,currentUrl,currentCharacterLink)} class="btn(xlarge) is-success is-round">
+        <button style="padding: .2rem 1rem;"  on:click={() => smash(currentName,currentUrl,currentCharacterLink,currentIndex)} class="btn(xlarge) is-success is-round">
           Smash
         </button>
         {:else if preferredGender}
@@ -427,7 +455,7 @@ onMount(() => {
             {:else}
               
 
-         <Analytics data={analyticsData} userPref={preferredGender} />
+            <Analytics data={analyticsData} userPref={preferredGender} />
               
             {/if}
             
@@ -450,6 +478,7 @@ onMount(() => {
           
               <img class="img" 
                 on:mouseenter={(e) => showTooltip(e)} on:mouseleave={(e) => hideTooltip(e)}
+                on:click={(e) => changeToPass(item)}
                 src={item.url} alt={item.name} width="50" height="50">
 
               <div class="hidden tooltip">

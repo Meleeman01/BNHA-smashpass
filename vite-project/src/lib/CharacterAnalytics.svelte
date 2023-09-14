@@ -54,7 +54,7 @@
 	{/if}
 	{#if selectedPreference == 'male ♂️'}
 		<div style="position: relative;">
-		<a href={characterPageUrl} target="_blank"><img src={characterImageUrl} width="225" height="225"></a>
+		<a href={characterPageUrl} target="_blank"><img src={characterImageUrl} width="225" height="225" alt={characterImageUrl}></a>
 		
 		<Chart smashData={malePrefSmash} passData={malePrefPass}/>
 		<h4>{characterName}</h4>
@@ -64,7 +64,7 @@
 	{/if}
 	{#if selectedPreference == 'both ⚥'}
 		<div style="position: relative;">
-		<a href={characterPageUrl} target="_blank"><img src={characterImageUrl} width="225" height="225"></a>
+		<a href={characterPageUrl} target="_blank"><img src={characterImageUrl} width="225" height="225" alt={characterImageUrl}></a>
 		
 		<Chart smashData={noPrefSmash} passData={noPrefPass}/>
 		<h4>{characterName}</h4>
@@ -87,7 +87,7 @@
 	}
 	a {
 		position: absolute;
-		top: 3.48rem;
-		left: 2.45rem;
+		top: 2.85rem;
+		left: 1.8rem;
 	}
 </style>
